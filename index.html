@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Welcome to Vuetify</title>
+  <link href='https://fonts.googleapis.com/css?family=Roboto:300,400,500,700|Material+Icons' rel="stylesheet" type="text/css">
+  <link href="https://unpkg.com/vuetify/dist/vuetify.min.css" rel="stylesheet" type="text/css"></link>
+  <link href="styles.css" rel="stylesheet" type="text/css">
+  <link rel="icon" type="image/png" href="favicon-32x32.png" sizes="32x32">
+  <script src="https://unpkg.com/vuetify/dist/vuetify.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <v-app top-navbar footer>
+      
+        <v-toolbar>
+          <v-toolbar-logo>Vuetify</v-toolbar-logo>
+          <v-toolbar-items>
+            <v-toolbar-item>
+              
+            </v-toolbar-item>
+          </v-toolbar-items>
+        </v-toolbar>
+      
+      <main>
+        <v-content>
+          <v-container :fluid="true">
+            <div id="getting-started">
+              <v-card class="secondary">
+                <v-card-text class="text-xs-center">
+                  <img src="v.png">
+                </v-card-text>
+              </v-card>
+              <p class="text-xs-center">Welcome to the Vuetify Simple Template</p>
+              <h2 class="primary--text">Important Links</h2>
+              <div class="devman">
+                  <devman />
+              </div>
+            </div>
+          </v-container>
+        </v-content>
+      </main>
+      <v-footer>Footer</v-footer>
+    </v-app>    
+  </div>
+
+    <template id="devman-template">
+    
+        <v-expansion-panel>
+          <v-expansion-panel-content v-for="(a, idx) of items">
+          <div slot="header"><span>{{a.name}}</span> {{a.status}}</div>
+          <div v-if="a.debug.length" >{{a.debug[0]}}</div>
+          <v-card>
+            <div>
+                <v-btn primary dark class="btn--dark-flat" v-on:click.native="restart(idx, false);">Restart</v-btn>
+                <v-btn primary dark class="btn--dark-flat" v-on:click.native="restart(idx, true);">Debug</v-btn>
+            </div>
+            
+            <v-card-text class="grey lighten-3">{{ JSON.stringify(a) }}</v-card-text>
+            </v-card>
+          </v-expansion-panel-content>
+        </v-expansion-panel>
+            
+   </template> 
+    
+
+
+  <script src="https://unpkg.com/vue/dist/vue.js"></script>
+  <script src="https://unpkg.com/vuex/dist/vuex.js"></script>
+  <script src="https://unpkg.com/vuetify/dist/vuetify.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script>
+
+     
+    
+    Vue.component('devman', {
+
+        data : function () { return {
+                    items: []
+                  , errors: []
+            }
+        }
+        , created : function () {
+            var myself = this;
+            axios.get('/api').then( function (response){
+                
+                response.data.forEach(function(item){ myself.items.push(item);});
+       
+            }).catch( function (e){ //this.errors.push(e);
+                alert(e);
+            } )
+
+        }
+        , template: '#devman-template'
+        , methods:  {
+             restart: function(idx, debug)
+             {
+                axios.get('/restart/' + idx + '/' + debug).then( function (response){
+
+                }).catch( function (e){ //this.errors.push(e);
+                    alert(e);
+                })
+          
+             }
+        }
+        
+    });
+     
+
+
+    var app = new Vue({
+      el: '#app',
+
+      data: {
+        item: {
+          text: 'Get Started'
+        }
+      }
+  })
+
+
+  
+  </script>
+</body>
+</html>
