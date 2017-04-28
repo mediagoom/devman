@@ -1,0 +1,17 @@
+{
+    "proc" : [
+        {
+              "name"  : "server"
+            , "watch" : ["test/**/*js", "!src/**/client/*", "!src/**/test/*"]
+            , "cmd"   : {"proc": "node", "args": ["./test/index.js"]}
+            , "debug" : false 
+            , "break" : false
+            , "options" : { "env":{
+                                    "NODEPLAYDEFOWNER" : "pippo"
+                                  }
+                          }
+                          
+         }
+    ]
+
+}
