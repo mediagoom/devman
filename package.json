@@ -1,6 +1,6 @@
 {
   "name": "devman",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "A nodejs developer manager",
   "main": "devman.js",
   "scripts": {

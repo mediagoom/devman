@@ -279,9 +279,9 @@ function proc(next, idx)
        console.log(FgGreen, idx, p.watch, Reset);
 
            var kidx = idx;
-           chokidar.watch(p.watch).on('all', (event, path) => {
+           var watcher = chokidar.watch(p.watch).on('all', (event, path) => {
                    
-                   console.log('watch ' + kidx, event, path);
+                   //console.log('watch ' + kidx, event, path);
                    if('change' == event)
                    {
                        if(s[idx].change)
@@ -298,6 +298,8 @@ function proc(next, idx)
                    //console.log(event, path);
 
                 }); 
+
+             setTimeout(() => { console.log(FgGreen, "--watched",  watcher.getWatched(), Reset); }, 2000);
    }
 
 
