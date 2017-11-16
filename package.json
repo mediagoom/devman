@@ -3,16 +3,14 @@
   "version": "0.0.3",
   "description": "A nodejs developer manager",
   "main": "devman.js",
-  "scripts": {
-    
-  },
+  "scripts": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mediagoom/devman.git"
   },
   "keywords": [
-    "node"
-    , "nodejs"
+    "node",
+    "nodejs"
   ],
   "author": "MediaGoom",
   "license": "ISC",
@@ -20,11 +18,9 @@
     "url": "https://github.com/mediagoom/devman/issues"
   },
   "homepage": "https://github.com/mediagoom/devman#readme",
-  "devDependencies": {
-  },
+  "devDependencies": {},
   "dependencies": {
-    "express": "^4.14.1"
-    , "chokidar": "^1.6.1"
-
+    "express": "^4.14.1",
+    "chokidar": "^1.6.1"
   }
 }

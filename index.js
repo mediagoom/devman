@@ -9,19 +9,20 @@ var path     = require('path')
 
 var config   = require(path.resolve(process.cwd(), './devman.json'));
 
-const Reset = "\x1b[0m"
+const Reset   = "\x1b[0m"
 
-const FgBlack = "\x1b[30m"
-const FgRed = "\x1b[31m"
-const FgGreen = "\x1b[32m"
-const FgYellow = "\x1b[33m"
-const FgBlue = "\x1b[34m"
+const FgBlack   = "\x1b[30m"
+const FgRed     = "\x1b[31m"
+const FgGreen   = "\x1b[32m"
+const FgYellow  = "\x1b[33m"
+const FgBlue    = "\x1b[34m"
 const FgMagenta = "\x1b[35m"
-const FgCyan = "\x1b[36m"
-const FgWhite = "\x1b[37m"
+const FgCyan    = "\x1b[36m"
+const FgWhite   = "\x1b[37m"
 
 var action = "run";
 var target = ".*";
+var processed = false;
 
 
 if(process.argv.length > 2)
@@ -83,6 +84,7 @@ app.get('/stop', (req, res) => {
 
 var g = [];
 var s = [];
+var w = [];
 // One-liner for current directory, ignores .dotfiles
 //'.', {ignored: /(^|[\/\\])\../})
 
@@ -137,7 +139,7 @@ function execnotexisting(idx, debug)
            s[idx].output = '';
            s[idx].outerr = '';
 
-           console.log(FgGreen, 'spawing:', p.cmd.proc, p.cmd.args, debug, Reset);
+           console.log(FgGreen, 'spawing:', p.cmd.proc, (p.cmd.args)?p.cmd.args:'--', debug, Reset);
 
            var args = p.cmd.args.slice();
 
@@ -145,7 +147,7 @@ function execnotexisting(idx, debug)
            {
                   for(var jj = (p.dbg_arg.length - 1); jj >= 0; jj--)
                   {
-                          console.log(p.dbg_idx, p.dbg_arg[jj], args);
+                          console.log(FgCyan, p.dbg_idx, p.dbg_arg[jj], args, Reset);
                           args.splice(p.dbg_idx, 0, p.dbg_arg[jj]);
                   }
                 
@@ -210,7 +212,6 @@ function execnotexisting(idx, debug)
 
             if(debug)
             {
-
                       var regexp = new RegExp(p.dbg_url, 'g');
                       var m =  s[k].outerr.match(regexp);
                       g[idx].debug = m;
@@ -273,6 +274,7 @@ function proc(next, idx)
 {
   
     var p = g[idx];
+    
    
    if(null != p.watch && 0 < p.watch.length)
    {
@@ -281,7 +283,8 @@ function proc(next, idx)
            var kidx = idx;
            var watcher = chokidar.watch(p.watch).on('all', (event, path) => {
                    
-                   //console.log('watch ' + kidx, event, path);
+                   console.log(FgCyan, 'watch ' + kidx, event, path, Reset);
+
                    if('change' == event)
                    {
                        if(s[idx].change)
@@ -293,13 +296,17 @@ function proc(next, idx)
                         s[idx].change = true;
                             exec(kidx);
 
+                       
+
                         setTimeout(() => {s[kidx].change = false}, 5000);
                    }
                    //console.log(event, path);
 
                 }); 
 
-             setTimeout(() => { console.log(FgGreen, "--watched",  watcher.getWatched(), Reset); }, 2000);
+             setTimeout(() => { console.log(FgGreen, "Watching",  watcher.getWatched(), Reset); }, 2000);
+
+             w[idx] = watcher;
    }
 
 
@@ -390,9 +397,13 @@ if("run" === action)
 
     next();
 
+    processed = true;
+
     app.listen(port, function () {
         console.log('app listening on port ' + port + '!');
     })
+
+
 }
 
 function checkurl(timeout, url, count, max)
@@ -452,6 +463,8 @@ if("start" === action)
         }
 
     }
+
+    processed = true;
                   
 }
 
@@ -471,5 +484,6 @@ if("stop" === action)
                                                        
            });
 
+   processed = true;
 }
 
