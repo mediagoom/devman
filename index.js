@@ -278,7 +278,10 @@ function proc(next, idx)
    
    if(null != p.watch && 0 < p.watch.length)
    {
-       console.log(FgGreen, idx, p.watch, Reset);
+       p.watch.push("!.git/**/*");
+       p.watch.push("!node_modules/**/*");
+
+       console.log(FgGreen, idx, '---*---', p.watch, Reset);
 
            var kidx = idx;
            var watcher = chokidar.watch(p.watch).on('all', (event, path) => {
@@ -308,8 +311,6 @@ function proc(next, idx)
 
              w[idx] = watcher;
    }
-
-
 
   exec(idx);
   next();
@@ -350,7 +351,9 @@ if("run" === action)
 {
     console.log("RUN", patt, config.proc.length);
 
-    for(i = (config.proc.length - 1); i >= 0; i--)
+    var upl = (config.proc.length - 1);
+
+    for(i = upl; i >= 0; i--)
     {
         console.log(i);
 
@@ -364,7 +367,7 @@ if("run" === action)
             , "cmd"   : null 
             , "debug" : false 
             , "break" : false
-            , "index" : idx
+            , "index" : i
             , "timeout" : 35000
             , "dbg_idx" : 0
             , "dbg_arg" : ['--inspect', '--debug-brk']
@@ -380,15 +383,16 @@ if("run" === action)
    s[i] = {
            "exec_output" : []
                    , "change" : false
-   };
+        };
         
         if(dorun)
         {
-            console.log(FgGreen, "\t", pp.name, Reset);
-            var mf  = ff;
-            var idx = i;
-
-            var nn = () => {proc(mf, idx);}
+            console.log(FgGreen, "\t", "-----", pp.name, Reset);
+            const mf  = (upl == i)?empty:ff;
+            const idx = i;
+       
+            //var nn = () => {proc(mf, idx);}
+            var nn = function(){proc(mf, idx);}
 
             next = nn;
         }
