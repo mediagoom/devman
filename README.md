@@ -54,6 +54,9 @@ Sample file:
 All ```proc``` in your array will be process lunched and managed by devman. Devman will use the ```cmd``` attribute to kwon how to lunch the process.
 In ```watch``` you can insert a glob for file witch will restart your process.
 
+## Web
+
+Open your browser to http://localhost:2999 to get an experimental UI to devman.
 
 
 
