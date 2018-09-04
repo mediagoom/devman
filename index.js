@@ -5,7 +5,11 @@ var cp       = require('child_process');
 var express  = require('express');
 var fs       = require('fs');
 var path     = require('path')
+var info     = require('debug')('devman:info');
+var watchinfo= require('debug')('devman:watch');
+var verbose  = require('debug')('devman:verbose');
 
+var prefixes = ['--', '++', '**', '>>'];
 
 var config   = require(path.resolve(process.cwd(), './devman.json'));
 
@@ -27,7 +31,7 @@ var processed = false;
 
 if(process.argv.length > 2)
 {
-    console.log("argv", process.argv, process.argv.length);
+    verbose("ARGV", process.argv, process.argv.length);
 
     action = process.argv[2];
 
@@ -49,10 +53,25 @@ app.get('/api', function (req, res) {
       res.json(g);
 })
 
+app.get('/info/:idx', (req, res) => {
+
+    var idx = req.params.idx;
+    verbose('info ', idx);
+    var err = false;
+   
+    var info = s[idx].output;
+
+    verbose('info result:', info);
+
+    res.send(info);
+});
+
+
+
 app.get('/restart/:idx/:debug?', (req, res) => {
 
         var idx = req.params.idx;
-        console.log('restart ', idx);
+        verbose('restart ', idx);
         var ret = 'restarting';
         var debug = false;
 
@@ -82,14 +101,13 @@ app.get('/stop', (req, res) => {
 
 });
 
-var g = [];
-var s = [];
-var w = [];
-// One-liner for current directory, ignores .dotfiles
-//'.', {ignored: /(^|[\/\\])\../})
+var g = []; //configurations and status
+var s = []; //process running
+var w = []; //watchers
 
 
-console.log(config.proc.length);
+
+verbose("CONFIG PROCESESS", config.proc.length);
 
 function clear_child(child)
 {
@@ -102,14 +120,14 @@ function clear_child(child)
 function execnotexisting(idx, debug)
 {  
 
-   console.log(FgCyan, 'execnotexisting', g[idx].name, idx, Reset);
+   verbose(FgCyan, 'execnotexisting', g[idx].name, idx, Reset);
 
    var p = g[idx];
 
     if(g[idx]['status'] == 'executing')
     {
 
-         console.log(FgMagenta, 'Process is executing ', g[idx].name, Reset);
+         verbose(FgMagenta, 'Process is executing ', g[idx].name, Reset);
          return;
     }
 
@@ -119,27 +137,27 @@ function execnotexisting(idx, debug)
    {
         try{
            
-                console.log(FgGreen, "executing: ", p.exec[i], Reset);
+                info(FgGreen, "executing: ", p.exec[i], Reset);
                 var b = cp.execSync(p.exec[i], {timeout : p.timeout}).toString();
                     s[idx].exec_output[i] = b;
 
-                console.log(b);
+                verbose(b);
 
         }catch(err)
         {
             s[idx]['err'] = err;
             g[idx]['status'] = 'error';
-            console.log(p.exec[i], ' error ', err.message);
+            verbose(p.exec[i], ' error ', err.message);
             break;
         }
    }
 
    if(null != p.cmd && g[idx]['status'] != 'error')
    {
-           s[idx].output = '';
-           s[idx].outerr = '';
+           s[idx].output = { console: [], err: []};
+           
 
-           console.log(FgGreen, 'spawing:', p.cmd.proc, (p.cmd.args)?p.cmd.args:'--', debug, Reset);
+           info(FgGreen, 'spawing:', p.cmd.proc, (p.cmd.args)?p.cmd.args:'--', (debug)?debug:'-x-', Reset);
 
            var args = p.cmd.args.slice();
 
@@ -147,11 +165,11 @@ function execnotexisting(idx, debug)
            {
                   for(var jj = (p.dbg_arg.length - 1); jj >= 0; jj--)
                   {
-                          console.log(FgCyan, p.dbg_idx, p.dbg_arg[jj], args, Reset);
+                          verbose(FgCyan, p.dbg_idx, p.dbg_arg[jj], args, Reset);
                           args.splice(p.dbg_idx, 0, p.dbg_arg[jj]);
                   }
                 
-               console.log(FgYellow, 
+               verbose(FgYellow, 
                                'spawing-debug:', p.cmd.proc, args
                                , Reset);
            }
@@ -163,7 +181,7 @@ function execnotexisting(idx, debug)
            {
                opt.env = Object.assign(process.env, opt.env);
 
-               //console.log("---env---",opt.env);
+               //verbose("---env---",opt.env);
            }
 
            s[idx].child = cp.spawn(p.cmd.proc, args, opt);
@@ -181,7 +199,7 @@ function execnotexisting(idx, debug)
 
                 s[k].child = null;
 
-                console.log(
+                info(
                         (code == 0 || null == code)?FgGreen:FgRed,
                         'child end: ', pid, k, code, g[k]['status'], g[k].name
                         ,Reset);
@@ -193,22 +211,25 @@ function execnotexisting(idx, debug)
                 g[k]['status'] = "error";
                 s[k].child = null;
 
-                console.log(FgRed, 'child error: ', g[k].name, k, err.message, opt);
+                info(FgRed, 'child error: ', g[k].name, k, err.message, opt);
 
            });
 
          s[idx].child.stdout.on('data', (data) => {
-          //console.log(`stdout: ${data}`);
-            s[k].output += data;
-            console.log(data.toString());
+          //verbose(`stdout: ${data}`);
+            let d = '' + data;
+            s[k].output.console.push(d);
+            
+            process.stdout.write(g[k].prefix + '\t' + data.toString());
 
             
         });
 
          s[idx].child.stderr.on('data', (data) => {
-          //console.log(`stderr: ${data}`);
-            s[k].outerr += data;
-            console.log(FgRed, data.toString(), Reset);
+          //verbose(`stderr: ${data}`);
+            let d = '' + data;
+            s[k].output.err.push(d);
+            console.error(g[k].prefix, FgRed, data.toString(), Reset);
 
             if(debug)
             {
@@ -217,7 +238,7 @@ function execnotexisting(idx, debug)
                       g[idx].debug = m;
                       if(null != m)
                       {
-                        console.log('****************', m[0], '******************');
+                        verbose('****************', m[0], '******************');
                       }
             }
 
@@ -228,7 +249,7 @@ function execnotexisting(idx, debug)
    else
    {
         if(null != p.cmd)
-           console.log(FgRed, '------>', g[idx].name, ' skip spawn on error', s[idx].exec_output);
+           verbose(FgRed, '------>', g[idx].name, ' skip spawn on error', s[idx].exec_output);
         else
            g[idx]['status'] = "closed";
    }
@@ -236,13 +257,13 @@ function execnotexisting(idx, debug)
 
 function exec(idx, debug)
 {
-   //console.log(FgMagenta, idx, g, g[idx], Reset);
+   //verbose(FgMagenta, idx, g, g[idx], Reset);
 
    if( g[idx]['status'] == 'closing'
      //|| g[idx]['status'] == 'closed'
      )
    {
-         console.log(FgMagenta, 'Process is exiting ', idx, g[idx].status, g[idx].name, Reset);
+         info(FgMagenta, 'Process is exiting ', idx, g[idx].status, g[idx].name, Reset);
          return;
    }
 
@@ -251,11 +272,11 @@ function exec(idx, debug)
    if(s[idx].child != null)
    {
         var pid = s[idx].child.pid;
-        console.log(FgYellow, 'killing: ', pid, g[idx].name, Reset);
+        verbose(FgYellow, 'killing: ', pid, g[idx].name, Reset);
          var k = idx;
          s[idx].child.on('close', (code, signal) => {
                  
-                 console.log(FgMagenta, 'kill close', pid, g[idx].name, g[idx].status, Reset);
+                 verbose(FgMagenta, 'kill close', pid, g[idx].name, g[idx].status, Reset);
                  
                  var j = k;
                  setTimeout(() => {execnotexisting(j, debug);}, 50);
@@ -281,18 +302,18 @@ function proc(next, idx)
        p.watch.push("!.git/**/*");
        p.watch.push("!node_modules/**/*");
 
-       console.log(FgGreen, idx, '---*---', p.watch, Reset);
+       watchinfo(FgGreen, idx, '---*---', p.watch, Reset);
 
            var kidx = idx;
            var watcher = chokidar.watch(p.watch).on('all', (event, path) => {
                    
-                   console.log(FgCyan, 'watch ' + kidx, event, path, Reset);
+            watchinfo(FgCyan, 'watch ' + kidx, event, path, Reset);
 
                    if('change' == event)
                    {
                        if(s[idx].change)
                        {
-                               console.log(FgYellow, "Discard Duplicated Change", kidx, g[kidx].name, Reset);
+                               info(FgYellow, "Discard Duplicated Change", kidx, g[kidx].name, Reset);
                                return;
                        }
                    
@@ -303,11 +324,11 @@ function proc(next, idx)
 
                         setTimeout(() => {s[kidx].change = false}, 5000);
                    }
-                   //console.log(event, path);
+                   //verbose(event, path);
 
                 }); 
 
-             setTimeout(() => { console.log(FgGreen, "Watching",  watcher.getWatched(), Reset); }, 2000);
+             setTimeout(() => { verbose(FgGreen, "Watching",  watcher.getWatched(), Reset); }, 2000);
 
              w[idx] = watcher;
    }
@@ -349,13 +370,13 @@ var patt = new RegExp(target);
 
 if("run" === action)
 {
-    console.log("RUN", patt, config.proc.length);
+    verbose("RUN ACTION", patt, config.proc.length, prefixes, prefixes.length);
 
     var upl = (config.proc.length - 1);
 
     for(i = upl; i >= 0; i--)
     {
-        console.log(i);
+        //verbose("RUN", i, prefixes[ i % prefixes.length]);
 
         var ff = next;
         var pp = config.proc[i];
@@ -372,12 +393,13 @@ if("run" === action)
             , "dbg_idx" : 0
             , "dbg_arg" : ['--inspect', '--debug-brk']
             , "dbg_url" : 'chrome-devtools:\/\/[^\\s\\n\\r]+'
+            , "prefix"  : prefixes[ i % prefixes.length]
          };
 
    var pp = Object.assign(d, pp);
    var dorun = patt.test(pp.name);
   
-   console.log("]...------[...]------...[", JSON.stringify(pp), i, dorun);
+   verbose("RUN", i, JSON.stringify(pp), i, dorun);
    
    g[i] = pp;
    s[i] = {
@@ -387,7 +409,7 @@ if("run" === action)
         
         if(dorun)
         {
-            console.log(FgGreen, "\t", "-----", pp.name, Reset);
+            verbose(FgGreen, "\t", "-----", pp.name, Reset);
             const mf  = (upl == i)?empty:ff;
             const idx = i;
        
@@ -404,7 +426,7 @@ if("run" === action)
     processed = true;
 
     app.listen(port, function () {
-        console.log('app listening on port ' + port + '!');
+        verbose('app listening on port ' + port + '!');
     })
 
 
@@ -418,7 +440,7 @@ function checkurl(timeout, url, count, max)
                 
                     if(err)
                     {
-                        console.log("cannot call ", url, count, max, err);
+                        verbose("cannot call ", url, count, max, err);
 
                         if(count < max)
                         {
@@ -428,7 +450,7 @@ function checkurl(timeout, url, count, max)
                     }
                     else
                     {
-                        console.log("GOT", url);//, body);
+                        verbose("GOT", url);//, body);
                     }
                 
                 });
@@ -437,7 +459,7 @@ function checkurl(timeout, url, count, max)
 
 if("start" === action)
 {
-    console.log("START", target);
+    verbose("START", target);
 
     const out = fs.openSync('./out.log', 'a');
     const err = fs.openSync('./out.log', 'a');
@@ -474,16 +496,54 @@ if("start" === action)
 
 if("stop" === action)
 {
-    console.log("STOP", target);
+    verbose("STOP", target);
 
    http_get('http://localhost:' + port + '/stop', function(err, body)
            {   if(err)
                {
-                   console.log("error", err);
+                   verbose("error", err);
                }
                else
                {
-                  console.log("exited", body);
+                  verbose("exited", body);
+               }
+                                                       
+           });
+
+   processed = true;
+}
+
+if("all" === action)
+{
+    verbose("all", target);
+
+   http_get('http://localhost:' + port + '/api', function(err, body)
+           {   if(err)
+               {
+                   console.error("error", err);
+               }
+               else
+               {
+                  console.log(body);
+               }
+                                                       
+           });
+
+   processed = true;
+}
+
+if("info" === action)
+{
+    verbose("info", target);
+
+   http_get('http://localhost:' + port + '/info/' + target , function(err, body)
+           {   if(err)
+               {
+                   console.error("error", err);
+               }
+               else
+               {
+                  console.log(body);
                }
                                                        
            });

@@ -1,13 +1,28 @@
 {
     "proc" : [
         {
-              "name"  : "server"
-            , "watch" : ["test/**/*js", "!src/**/client/*", "!src/**/test/*"]
-            , "cmd"   : {"proc": "node", "args": ["./test/index.js"]}
+              "name"  : "console1"
+            , "watch" : ["test/**/*js"]
+            , "cmd"   : {"proc": "node", "args": ["./test/consoleapp.js"]}
             , "debug" : false 
             , "break" : false
             , "options" : { "env":{
-                                    "NODEPLAYDEFOWNER" : "pippo"
+                                     "DEVMANID" : "PROCESS-1"
+                                     , "CONSOLECHAR" : "[1]"
+                                  }
+                          }
+                          
+         }
+         , 
+         {
+              "name"  : "console2"
+            , "watch" : ["test/**/*js"]
+            , "cmd"   : {"proc": "node", "args": ["./test/consoleapp.js"]}
+            , "debug" : false 
+            , "break" : false
+            , "options" : { "env":{
+                                      "DEVMANID" : "PROCESS-2"
+                                    , "CONSOLECHAR" : "[2]"
                                   }
                           }
                           

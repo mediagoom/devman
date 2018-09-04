@@ -1,0 +1,26 @@
+language: node_js
+node_js:
+- 10
+- 9
+- 8
+branches:
+  except:
+  - dev-wia
+before_install: 
+script:
+- npm install
+- npm test
+- cat ./out.log
+after_script: 
+deploy:
+- provider: npm
+  email: info@mediagoom.com
+  skip_cleanup: true
+  api_key:
+    secure: uiNBTx/gtgE7+F4Dn0PsNJkbAqcl3hJZ2qcMx7Ymlg5GS/7kGsIjm9/gtJpwq/cp15JjBklzT03Rp9jc8N4cFmsUu1Y17zELR+33ZVGhlDbUodZ1nLLHzXlYwCwNPhRZbglRa+rriwfTC+Ra10T4+bsq4iUHVpPsaBvaQOMzzi25dg5GfeWbZzOCy5/Lw/BiM3yJGxPvmWGiapm6IVRElCB8W9C5sFw/ywneiTjlWwgOhlLo/69TY5C14XNJ2+Os/aY9VxLVdTVc0RJWdkbL6phEbQFSId1wEKzsU2vMVweYHTU1NkqXQVqd/x211BwmKcrL1ds8GoA4XI1tgjtc5zLTfMFrw48BbWXoabo1VGofMRpYEwjs2bHIklQToSVeJtn8fnyk5rDVlYLFetaGQz5FqvbCiiKLUaqJoXJmbLlBuR6RWJvdxP2z7eoPlhpejHHjQ7eCQfTQd55m6GC5eH72q58CZdt289S3/Ip4vzxoVtzT2TKTLqeI2V0qAm495iRYdQUrUxj4Up7q4pOI0fd/EYJCKDSQp/dFXOpN1DCWdWY3bcrre87cSxLFmBJhM2zn2L4JeefYxOnNDLq2CUtAHf67O5uLrTFs8QanqTpJN1QKkycU6b+R/xdsa+JLg23rSzx2ckO526AWVLZRMDYv2kf7qZugUPbcWQr42Ts=
+  on:
+    tags: true
+    repo: mediagoom/node-play
+    node: 8
+
+    
