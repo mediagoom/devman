@@ -1,6 +1,6 @@
 {
   "name": "@mediagoom/devman",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "A nodejs developer manager",
   "main": "index.js",
   "publishConfig": {
