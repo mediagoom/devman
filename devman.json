@@ -27,6 +27,37 @@
                           }
                           
          }
+         , 
+         {
+              "name"  : "just say hello"
+            , "watch" : ["test/**/*js"]
+            , "exec"  : ["node ./test/consoleapp.js once -m \"hello world\""]
+            , "debug" : false 
+            , "break" : false
+            , "options" : { "env":{
+                                      "DEVMANID" : "PROCESS-3"
+                                    , "CONSOLECHAR" : "[3]"
+                                  }
+                          }
+                          
+         }
+         , 
+         {
+              "name"  : "npm test"
+            , "watch" : ["test/**/*js"]
+            , "exec"  : ["node ./test/consoleapp.js once -m \"[4] npm-test\""]
+            , "cmd"   : {"proc": "npm", "args": ["--version"]}
+            , "debug" : false 
+            , "break" : false
+            , "options" : {  
+                                "env":{
+                                      "DEVMANID" : "PROCESS-4"
+                                    , "CONSOLECHAR" : "[4]"
+                                    
+                                  }
+                          }
+                          
+         }
     ]
 
 }

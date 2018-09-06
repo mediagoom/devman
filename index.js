@@ -1,4 +1,4 @@
-#!/usr/bin/env
+#!/usr/bin/env node
 
 var chokidar = require('chokidar');
 var cp       = require('child_process');
@@ -66,8 +66,6 @@ app.get('/info/:idx', (req, res) => {
     res.send(info);
 });
 
-
-
 app.get('/restart/:idx/:debug?', (req, res) => {
 
         var idx = req.params.idx;
@@ -120,14 +118,16 @@ function clear_child(child)
 function execnotexisting(idx, debug)
 {  
 
-   verbose(FgCyan, 'execnotexisting', g[idx].name, idx, Reset);
+   var NAME = g[idx].name;
+
+   verbose(FgCyan, 'execnotexisting', NAME, idx, Reset);
 
    var p = g[idx];
 
     if(g[idx]['status'] == 'executing')
     {
 
-         verbose(FgMagenta, 'Process is executing ', g[idx].name, Reset);
+         verbose(FgMagenta, 'Process is executing ', NAME, Reset);
          return;
     }
 
@@ -137,11 +137,13 @@ function execnotexisting(idx, debug)
    {
         try{
            
-                info(FgGreen, "executing: ", p.exec[i], Reset);
+                info(FgGreen, NAME, " executing: ", p.exec[i], Reset);
                 var b = cp.execSync(p.exec[i], {timeout : p.timeout}).toString();
-                    s[idx].exec_output[i] = b;
+                    
+                s[idx].output.tasks[i] = b;
 
-                verbose(b);
+                //verbose(b);
+                process.stdout.write(g[idx].prefix + '\t' + b);
 
         }catch(err)
         {
@@ -154,10 +156,13 @@ function execnotexisting(idx, debug)
 
    if(null != p.cmd && g[idx]['status'] != 'error')
    {
-           s[idx].output = { console: [], err: []};
+           //s[idx].output = { console: [], err: []};
+
+           s[idx].output.console = [];
+           s[idx].output.err = [];
            
 
-           info(FgGreen, 'spawing:', p.cmd.proc, (p.cmd.args)?p.cmd.args:'--', (debug)?debug:'-x-', Reset);
+           info(FgGreen, NAME, ' spawing:', p.cmd.proc, (p.cmd.args)?p.cmd.args:'--', (debug)?debug:'-x-', Reset);
 
            var args = p.cmd.args.slice();
 
@@ -174,14 +179,14 @@ function execnotexisting(idx, debug)
                                , Reset);
            }
 
-           var opt = Object.assign({}, p.options);
+           var opt = Object.assign({}, p.options, {shell : true});
 
            if(null != p.options.env
                    && null != opt.env)
            {
                opt.env = Object.assign(process.env, opt.env);
 
-               //verbose("---env---",opt.env);
+               //verbose(NAME, " env: ", JSON.stringify(opt, null, 4));
            }
 
            s[idx].child = cp.spawn(p.cmd.proc, args, opt);
@@ -211,7 +216,7 @@ function execnotexisting(idx, debug)
                 g[k]['status'] = "error";
                 s[k].child = null;
 
-                info(FgRed, 'child error: ', g[k].name, k, err.message, opt);
+                info(FgRed, NAME, ' child error: ', g[k].name, k, err.message, opt);
 
            });
 
@@ -249,7 +254,7 @@ function execnotexisting(idx, debug)
    else
    {
         if(null != p.cmd)
-           verbose(FgRed, '------>', g[idx].name, ' skip spawn on error', s[idx].exec_output);
+           verbose(FgRed, '------>', g[idx].name, ' skip spawn on error', s[idx].output.tasks);
         else
            g[idx]['status'] = "closed";
    }
@@ -296,13 +301,14 @@ function proc(next, idx)
   
     var p = g[idx];
     
+    var NAME = p.name;
    
    if(null != p.watch && 0 < p.watch.length)
    {
        p.watch.push("!.git/**/*");
        p.watch.push("!node_modules/**/*");
 
-       watchinfo(FgGreen, idx, '---*---', p.watch, Reset);
+       watchinfo(FgGreen, idx, NAME, p.watch, Reset);
 
            var kidx = idx;
            var watcher = chokidar.watch(p.watch).on('all', (event, path) => {
@@ -313,7 +319,7 @@ function proc(next, idx)
                    {
                        if(s[idx].change)
                        {
-                               info(FgYellow, "Discard Duplicated Change", kidx, g[kidx].name, Reset);
+                               info(FgYellow, NAME, "Discard Duplicated Change", kidx, g[kidx].name, Reset);
                                return;
                        }
                    
@@ -328,7 +334,7 @@ function proc(next, idx)
 
                 }); 
 
-             setTimeout(() => { verbose(FgGreen, "Watching",  watcher.getWatched(), Reset); }, 2000);
+             setTimeout(() => { watchinfo(FgGreen, NAME, "Watching",  watcher.getWatched(), Reset); }, 2000);
 
              w[idx] = watcher;
    }
@@ -399,12 +405,12 @@ if("run" === action)
    var pp = Object.assign(d, pp);
    var dorun = patt.test(pp.name);
   
-   verbose("RUN", i, JSON.stringify(pp), i, dorun);
+   verbose("RUN", d.name, i, JSON.stringify(pp, null, 4), i, dorun);
    
    g[i] = pp;
    s[i] = {
-           "exec_output" : []
-                   , "change" : false
+             "change" : false
+            , "output" : { "console": [], "err": [], "tasks" : [] }
         };
         
         if(dorun)
@@ -524,7 +530,8 @@ if("all" === action)
                }
                else
                {
-                  console.log(body);
+                   var j = JSON.parse(body);
+                  console.log(JSON.stringify(j, null, 4));
                }
                                                        
            });
@@ -537,6 +544,31 @@ if("info" === action)
     verbose("info", target);
 
    http_get('http://localhost:' + port + '/info/' + target , function(err, body)
+           {   if(err)
+               {
+                   console.error("error", err);
+               }
+               else
+               {
+                  var j = JSON.parse(body);
+                  //console.log(j);
+                  j.tasks.forEach((l) => process.stdout.write(l))
+                  //console.log(body);
+                  j.console.forEach((l) => process.stdout.write(l))
+                  j.err.forEach((l) => process.stderr.write(l))
+                  
+               }
+                                                       
+           });
+
+   processed = true;
+}
+
+if("restart" === action)
+{
+    verbose("restart", target);
+
+   http_get('http://localhost:' + port + '/restart/' + target , function(err, body)
            {   if(err)
                {
                    console.error("error", err);
