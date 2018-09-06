@@ -179,7 +179,7 @@ function execnotexisting(idx, debug)
                                , Reset);
            }
 
-           var opt = Object.assign({}, p.options, {shell : true});
+           var opt = Object.assign({}, p.options);//, {shell : false});
 
            if(null != p.options.env
                    && null != opt.env)

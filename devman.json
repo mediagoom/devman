@@ -49,8 +49,8 @@
             , "cmd"   : {"proc": "npm", "args": ["--version"]}
             , "debug" : false 
             , "break" : false
-            , "options" : {  
-                                "env":{
+            , "options" : {     "shell" : true
+                                , "env":{
                                       "DEVMANID" : "PROCESS-4"
                                     , "CONSOLECHAR" : "[4]"
                                     
