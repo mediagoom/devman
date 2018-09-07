@@ -224,8 +224,8 @@ function execnotexisting(idx, debug)
           //verbose(`stdout: ${data}`);
             let d = '' + data;
             s[k].output.console.push(d);
-            
-            process.stdout.write(g[k].prefix + '\t' + data.toString());
+            let prefix = g[k].prefix + '\t';
+            process.stdout.write(prefix + data.toString().replace('\n', '\n' + prefix));
 
             
         });
@@ -465,7 +465,7 @@ function checkurl(timeout, url, count, max)
 
 if("start" === action)
 {
-    verbose("START", target);
+    verbose("START", target, process.argv[1]);
 
     const out = fs.openSync('./out.log', 'a');
     const err = fs.openSync('./out.log', 'a');
