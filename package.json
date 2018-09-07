@@ -14,7 +14,7 @@
     "integration": "node test/index.js",
     "start": "node index.js start",
     "stop": "node index.js stop",
-    "g" : "nyc --show-process-tree npm test ",
+    "testinstrumented" : "nyc --show-process-tree npm test ",
     "report" : "nyc report",
     "test": "run-s -c start integration stop"
   },
