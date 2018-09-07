@@ -11,6 +11,8 @@ script:
 - npm install
 - npm test
 - cat ./out.log
+- npm run testinstrumented
+- npm run report
 after_script: 
 deploy:
 - provider: npm
