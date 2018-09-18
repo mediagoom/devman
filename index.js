@@ -465,7 +465,7 @@ function checkurl(timeout, url, count, max)
 
 if("start" === action)
 {
-    verbose("START", target, process.argv[1]);
+    verbose("START>>", target, process.argv[1]);
 
     const out = fs.openSync('./out.log', 'a');
     const err = fs.openSync('./out.log', 'a');
