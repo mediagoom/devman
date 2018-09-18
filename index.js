@@ -164,7 +164,9 @@ function execnotexisting(idx, debug)
 
            info(FgGreen, NAME, ' spawing:', p.cmd.proc, (p.cmd.args)?p.cmd.args:'--', (debug)?debug:'-x-', Reset);
 
-           var args = p.cmd.args.slice();
+           var args = [];
+           if(null != p.cmd.args)
+                args = p.cmd.args.slice(); //copy array
 
            if(debug)
            {
@@ -225,7 +227,9 @@ function execnotexisting(idx, debug)
             let d = '' + data;
             s[k].output.console.push(d);
             let prefix = g[k].prefix + '\t';
-            process.stdout.write(prefix + data.toString().replace('\n', '\n' + prefix));
+            let tokens = data.toString().split('\n');
+            for(let idx = 0; idx < tokens.length; idx++)
+                process.stdout.write(prefix + tokens[i] + '\n');
 
             
         });
