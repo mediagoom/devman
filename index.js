@@ -9,8 +9,6 @@ var info     = require('debug')('devman:info');
 var watchinfo= require('debug')('devman:watch');
 var verbose  = require('debug')('devman:verbose');
 
-var prefixes = ['--', '++', '**', '>>'];
-
 var config   = require(path.resolve(process.cwd(), './devman.json'));
 
 const Reset   = "\x1b[0m"
@@ -23,6 +21,9 @@ const FgBlue    = "\x1b[34m"
 const FgMagenta = "\x1b[35m"
 const FgCyan    = "\x1b[36m"
 const FgWhite   = "\x1b[37m"
+
+var prefixes = ['-', '+', '*', '>'];
+const prefixColors = [FgGreen, FgYellow, FgBlue, FgMagenta, FgCyan]
 
 var action = "run";
 var target = ".*";
@@ -107,6 +108,32 @@ var w = []; //watchers
 
 verbose("CONFIG PROCESESS", config.proc.length);
 
+function exitproc(k, code)
+{
+    g[k]['info']   = "close " + code;
+    g[k]['status'] = "closed";
+    g[k]['lastexitcode'] = code;
+
+    var pid = null;
+    
+    if(s[k].child != null)
+       pid = s[k].child.pid;
+
+    s[k].child = null;
+
+    info(
+            (code == 0 || null == code)?FgGreen:FgRed,
+            'child end: ', pid, k, code, g[k]['status'], g[k].name
+            ,Reset);
+}
+
+function stdout(data, prefix)
+{
+    let tokens = data.toString().split('\n');
+            for(let idx = 0; idx < tokens.length; idx++)
+                process.stdout.write(prefix + tokens[idx] + '\n');
+}
+
 function clear_child(child)
 {
         if(child == null)
@@ -135,22 +162,60 @@ function execnotexisting(idx, debug)
    
    for(i = 0; i < p.exec.length; i++)
    {
+        let options = {};
+
         try{
-           
-                info(FgGreen, NAME, " executing: ", p.exec[i], Reset);
-                var b = cp.execSync(p.exec[i], {timeout : p.timeout}).toString();
-                    
+
+                
+
+                if(p.execOptions.length > i)
+                    options = p.execOptions[i];
+
+                options.timeout = p.timeout;
+
+                if(null != options.env)
+                {
+                    if(null != options.env.PATH && false !== options.mergepath)
+                    {
+                        options.env.PATH = options.env.PATH + path.delimiter + process.env.PATH;
+                    }
+                    options.env = Object.assign(process.env, options.env);
+                }
+                           
+                info(FgGreen, NAME, " executing: ", p.exec[i], "\noptions: ", JSON.stringify(options, null, 4), Reset);
+                var b = cp.execSync(p.exec[i], options).toString();
+                verbose(FgGreen, NAME, " executed.");
                 s[idx].output.tasks[i] = b;
 
-                //verbose(b);
-                process.stdout.write(g[idx].prefix + '\t' + b);
+                verbose(`>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>: ${NAME}`);
+                verbose(`stdout: ${b}`);
+                verbose(`---------------------------------------: ${NAME}`);
+                verbose(b.toString().split('\n'));
+                verbose(`<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<: ${NAME}`);
+
+                stdout(b, p.prefix);
 
         }catch(err)
         {
-            s[idx]['err'] = err;
-            g[idx]['status'] = 'error';
-            verbose(p.exec[i], ' error ', err.message);
-            break;
+            if(true === options.ignoreError)
+            {
+                verbose('EXEC IGNORE ERROR: ' + JSON.stringify(err, null, 4));
+                verbose(`>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>: ${NAME}`);
+                verbose(`stderr: ${err.output}`);
+                verbose(`---------------------------------------: ${NAME}`);
+                verbose(err.output.toString().split('\n'));
+                verbose(`<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<: ${NAME}`);
+
+                stdout(err.output, g[idx].prefix + '\tEXEC IGNORE ERROR: ');
+            }
+            else
+            {            
+
+                s[idx]['err'] = err;
+                g[idx]['status'] = 'error';
+                console.error(FgRed, p.exec[i], ' error ', err.message, Reset);
+                break;
+            }
         }
    }
 
@@ -186,31 +251,34 @@ function execnotexisting(idx, debug)
            if(null != p.options.env
                    && null != opt.env)
            {
+               if(null != opt.env.PATH && false !== opt.mergepath)
+               {
+                    opt.env.PATH = opt.env.PATH + path.delimiter + process.env.PATH;
+               }
                opt.env = Object.assign(process.env, opt.env);
 
-               //verbose(NAME, " env: ", JSON.stringify(opt, null, 4));
+               verbose(NAME, "OPTIONS: ", JSON.stringify(opt, null, 4));
            }
 
            s[idx].child = cp.spawn(p.cmd.proc, args, opt);
            var k = idx;
 
            s[idx].child.on('close', (code, signal) => {
-                g[k]['info']   = "close " + code;
-                g[k]['status'] = "closed";
-                g[k]['lastexitcode'] = code;
-
-                var pid = null;
                 
-                if(s[k].child != null)
-                   pid = s[k].child.pid;
+                verbose('onclose ', k, code);
 
-                s[k].child = null;
-
-                info(
-                        (code == 0 || null == code)?FgGreen:FgRed,
-                        'child end: ', pid, k, code, g[k]['status'], g[k].name
-                        ,Reset);
+                exitproc(k, code);
+                
            });
+
+           s[idx].child.on('exit', (code, signal) => {
+                
+            verbose('onexit ', k, code, g[k]['status'] == 'closing');
+
+            if(g[k]['status'] == 'closing') //close did not got called
+                exitproc(k, code);
+            
+         });
 
            s[idx].child.on('error', (err) => {
                 g[k]['info']   = "err " + err.message;
@@ -218,27 +286,33 @@ function execnotexisting(idx, debug)
                 g[k]['status'] = "error";
                 s[k].child = null;
 
-                info(FgRed, NAME, ' child error: ', g[k].name, k, err.message, opt);
+                console.log(FgRed, NAME, ' child error: ', g[k].name, k, err.message, opt);
 
            });
 
          s[idx].child.stdout.on('data', (data) => {
-          //verbose(`stdout: ${data}`);
+            //verbose(`>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>: ${g[k].name}`);
+            //verbose(`stdout: ${data}`);
+            //verbose(`---------------------------------------: ${g[k].name}`);
+            //verbose(data.toString().split('\n'));
+            //verbose(`<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<: ${g[k].name}`);
             let d = '' + data;
+
             s[k].output.console.push(d);
             let prefix = g[k].prefix + '\t';
-            let tokens = data.toString().split('\n');
-            for(let idx = 0; idx < tokens.length; idx++)
-                process.stdout.write(prefix + tokens[i] + '\n');
-
-            
+            stdout(data, prefix);
+           
         });
 
          s[idx].child.stderr.on('data', (data) => {
-          //verbose(`stderr: ${data}`);
+            //verbose(`>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>: ${g[k].name}`);
+            //verbose(`stderr: ${data}`);
+            //verbose(`<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<: ${g[k].name}`);
             let d = '' + data;
             s[k].output.err.push(d);
-            console.error(g[k].prefix, FgRed, data.toString(), Reset);
+            //console.error(g[k].prefix, FgRed, data.toString(), Reset);
+
+            stdout(data, FgRed + '!' + g[k].name + '!\t');
 
             if(debug)
             {
@@ -283,9 +357,9 @@ function exec(idx, debug)
         var pid = s[idx].child.pid;
         verbose(FgYellow, 'killing: ', pid, g[idx].name, Reset);
          var k = idx;
-         s[idx].child.on('close', (code, signal) => {
+         s[idx].child.on('exit', (code, signal) => {
                  
-                 verbose(FgMagenta, 'kill close', pid, g[idx].name, g[idx].status, Reset);
+                 verbose(FgMagenta, 'kill exit', pid, g[idx].name, g[idx].status, Reset);
                  
                  var j = k;
                  setTimeout(() => {execnotexisting(j, debug);}, 50);
@@ -317,7 +391,7 @@ function proc(next, idx)
            var kidx = idx;
            var watcher = chokidar.watch(p.watch).on('all', (event, path) => {
                    
-            watchinfo(FgCyan, 'watch ' + kidx, event, path, Reset);
+            watchinfo(FgCyan, 'watch event ' + kidx, event, path, Reset);
 
                    if('change' == event)
                    {
@@ -326,6 +400,8 @@ function proc(next, idx)
                                info(FgYellow, NAME, "Discard Duplicated Change", kidx, g[kidx].name, Reset);
                                return;
                        }
+
+                       watchinfo(FgCyan, 'watch change event ' + kidx, event, path, Reset);
                    
                         s[idx].change = true;
                             exec(kidx);
@@ -395,6 +471,7 @@ if("run" === action)
               "name"  : "none"
             , "watch" : []
             , "exec"  : []
+            , "execOptions" : []
             , "cmd"   : null 
             , "debug" : false 
             , "break" : false
@@ -404,12 +481,15 @@ if("run" === action)
             , "dbg_arg" : ['--inspect', '--debug-brk']
             , "dbg_url" : 'chrome-devtools:\/\/[^\\s\\n\\r]+'
             , "prefix"  : prefixes[ i % prefixes.length]
+            , "color"   : prefixColors[ i % prefixes.length]
          };
 
    var pp = Object.assign(d, pp);
    var dorun = patt.test(pp.name);
   
    verbose("RUN", d.name, i, JSON.stringify(pp, null, 4), i, dorun);
+
+   pp.prefix = pp.color + pp.prefix + pp.name + pp.prefix + Reset;
    
    g[i] = pp;
    s[i] = {
