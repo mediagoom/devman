@@ -44,6 +44,7 @@ if(process.argv.length > 2)
 
 
 var app = express();
+let server = undefined;
 
 var port = 2999;
 
@@ -90,12 +91,28 @@ app.get('/stop', (req, res) => {
     for(var i = 0; i < s.length; i++)
     {
         if(null != s[i].child)
+        {
+            var pid = s[i].child.pid;
+            verbose(FgYellow, 'killing: ', pid, g[i].name, Reset);
+            s[i].child.stdin.pause();
             s[i].child.kill();
+            s[i].child = null;
+        }
+            
     }
+   
+    process.exitCode = 0;
+    setImmediate(()=> server.close());
 
-    setTimeout(() => { process.exit();}, 1000);
+    const timeout = setTimeout(() => { 
+        verbose('exiting from stop');
+        console.error('server could not exit')
+        process.exit(1000);
+    }, 1000);
 
-    res.send("stopped");
+    timeout.unref();
+
+    res.send('stopped');
     
 
 });
@@ -484,18 +501,18 @@ if("run" === action)
             , "color"   : prefixColors[ i % prefixes.length]
          };
 
-   var pp = Object.assign(d, pp);
-   var dorun = patt.test(pp.name);
-  
-   verbose("RUN", d.name, i, JSON.stringify(pp, null, 4), i, dorun);
+        var pp = Object.assign(d, pp);
+        var dorun = patt.test(pp.name);
+        
+        verbose("RUN", d.name, i, JSON.stringify(pp, null, 4), i, dorun);
 
-   pp.prefix = pp.color + pp.prefix + pp.name + pp.prefix + Reset;
-   
-   g[i] = pp;
-   s[i] = {
-             "change" : false
-            , "output" : { "console": [], "err": [], "tasks" : [] }
-        };
+        pp.prefix = pp.color + pp.prefix + pp.name + pp.prefix + Reset;
+        
+        g[i] = pp;
+        s[i] = {
+                    "change" : false
+                , "output" : { "console": [], "err": [], "tasks" : [] }
+            };
         
         if(dorun)
         {
@@ -515,7 +532,25 @@ if("run" === action)
 
     processed = true;
 
-    app.listen(port, function () {
+    process.on('SIGINT', function() {
+        
+        verbose("SIGINT");
+
+        for(let idx=0; idx < s.length; idx++)
+        {
+            if(null != s[idx].child)
+            {
+                var pid = s[idx].child.pid;
+                verbose(FgYellow, 'killing: ', pid, g[idx].name, Reset);
+                s[idx].child.kill();
+                s[idx].child = null;
+            }
+        }
+
+        
+      });
+
+    server = app.listen(port, function () {
         verbose('app listening on port ' + port + '!');
     })
 
@@ -535,6 +570,11 @@ function checkurl(timeout, url, count, max)
                         if(count < max)
                         {
                             checkurl(timeout, url, count + 1, max);
+                        }
+                        else
+                        {
+                            console.err("cannot call ", url);
+                            process.exitCode = 5;
                         }
 
                     }
@@ -560,6 +600,12 @@ if("start" === action)
                   , stdio: [ 'ignore', out, err ]
                   , cwd: process.cwd()
                 });
+
+    verbose("start child %O", child);
+
+    //fs.writeFileSync("./pid", child.pid);
+
+    //console.log('started', child.pid);    
 
     child.unref();
 
@@ -592,6 +638,7 @@ if("stop" === action)
            {   if(err)
                {
                    verbose("error", err);
+                   process.exitCode = 6;
                }
                else
                {
@@ -611,6 +658,7 @@ if("all" === action)
            {   if(err)
                {
                    console.error("error", err);
+                   process.exitCode = (7);
                }
                else
                {
@@ -631,6 +679,7 @@ if("info" === action)
            {   if(err)
                {
                    console.error("error", err);
+                   process.exitCode = 0(8);
                }
                else
                {
@@ -656,6 +705,7 @@ if("restart" === action)
            {   if(err)
                {
                    console.error("error", err);
+                   process.exitCode = (9);
                }
                else
                {
