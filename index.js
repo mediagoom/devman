@@ -177,7 +177,7 @@ function execnotexisting(idx, debug)
 
     g[idx]['status'] = 'executing';
    
-    for(i = 0; i < p.exec.length; i++)
+    for(let i = 0; i < p.exec.length; i++)
     {
         let options = {};
 
@@ -534,14 +534,14 @@ if('run' === action)
 
     process.on('SIGINT', function() {
         
-        verbose('SIGINT');
+        info('SIGINT');
 
         for(let idx=0; idx < s.length; idx++)
         {
             if(null != s[idx].child)
             {
                 var pid = s[idx].child.pid;
-                verbose(FgYellow, 'killing: ', pid, g[idx].name, Reset);
+                info(FgYellow, 'killing: ', pid, g[idx].name, Reset);
                 s[idx].child.kill();
                 s[idx].child = null;
             }
