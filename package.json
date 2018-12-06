@@ -1,7 +1,10 @@
 {
   "name": "@mediagoom/devman",
-  "version": "0.0.6",
+  "version": "0.0.8",
   "description": "A nodejs developer manager",
+  "bin": {
+    "devman": "./index.js"
+  },
   "main": "index.js",
   "publishConfig": {
     "access": "public"
@@ -9,9 +12,11 @@
   "scripts": {
     "interactive": "node index.js",
     "integration": "node test/index.js",
-    "start" : "node index.js start",
-    "stop" : "node index.js stop",
-    "test" : "run-s -c start integration stop"
+    "start": "node index.js start",
+    "stop": "node index.js stop",
+    "testinstrumented": "nyc --show-process-tree npm test ",
+    "report": "nyc report",
+    "test": "run-s -c start integration stop"
   },
   "repository": {
     "type": "git",
@@ -29,12 +34,15 @@
   },
   "homepage": "https://github.com/mediagoom/devman#readme",
   "devDependencies": {
+    "eslint": "^5.9.0",
     "npm-run-all": "^4.1.3",
-    "supertest": "^3.1.0"
+    "nyc": "^13.0.1",
+    "supertest": "^3.3.0"
   },
   "dependencies": {
     "chokidar": "^1.6.1",
-    "debug": "^3.1.0",
-    "express": "^4.14.1"
+    "debug": "^3.2.6",
+    "express": "^4.16.3",
+    "yargs": "^12.0.2"
   }
 }

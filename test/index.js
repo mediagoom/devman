@@ -1,9 +1,9 @@
-'use strict'
+'use strict';
 
 const dbg    = require('debug')('devman:test');
 
 var request = require('supertest')
-, express = require('express');
+    , express = require('express');
 
 var app = express();
 
@@ -11,14 +11,14 @@ var url = 'http://localhost:2999';
 
 
 
-const timeout = ms => new Promise(res => setTimeout(res, ms))
+const timeout = ms => new Promise(res => setTimeout(res, ms));
 
 async function check(path)
 {
     const res = await request(url).get(path);
     dbg('check', url, path, res.status);
-    if(res.status != 200){throw "INVALID STATUS RETURNED";}
-    if(res.header['content-type'] != 'application/json; charset=utf-8'){throw "INVALID CONTENT-TYPE";}
+    if(res.status != 200){throw 'INVALID STATUS RETURNED';}
+    if(res.header['content-type'] != 'application/json; charset=utf-8'){throw 'INVALID CONTENT-TYPE';}
 
     return res.body;
 }
@@ -47,10 +47,10 @@ async function testInfo()
     }
 
     dbg('INFO', body);
-    dbg("lines", body.console.length);
+    dbg('lines', body.console.length);
 
     if(0 == body.console.length)
-        throw "CANNOT GET ANY OUTPUT";
+        throw 'CANNOT GET ANY OUTPUT';
 
 }           
 
@@ -70,9 +70,9 @@ async function testAsync()
 
 function main()
 {
-    dbg("MAIN")
-    testAsync().then(()=> console.log("Done")).catch((e)=> {dbg("ERROR"); console.error(e); process.exitCode = 1;})
+    dbg('MAIN');
+    testAsync().then(()=> console.log('Done')).catch((e)=> {dbg('ERROR'); console.error(e); process.exitCode = 1;});
 }
 
-dbg("RUNNING TESTS")
+dbg('RUNNING TESTS');
 main();

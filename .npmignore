@@ -2,4 +2,6 @@
 *.json
 eslintrc.json
 .gitignore
+/.nyc_output
+/coverage
 
