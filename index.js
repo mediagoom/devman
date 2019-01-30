@@ -1,15 +1,21 @@
 #!/usr/bin/env node
 
-var chokidar = require('chokidar');
-var cp       = require('child_process');
-var express  = require('express');
-var fs       = require('fs');
-var path     = require('path');
-var info     = require('debug')('devman:info');
-var watchinfo= require('debug')('devman:watch');
-var verbose  = require('debug')('devman:verbose');
+const chokidar = require('chokidar');
+const cp       = require('child_process');
+const express  = require('express');
+const fs       = require('fs');
+const path     = require('path');
+const yargs    = require('yargs');
 
-var config   = require(path.resolve(process.cwd(), './devman.json'));
+const log = {
+
+    info : require('debug')('devman:info')
+    , watch : require('debug')('devman:watch')
+    , verbose  : require('debug')('devman:verbose')
+    , brief : require('debug')('devman:brief') 
+};
+
+
 
 const Reset   = '\x1b[0m';
 
@@ -25,11 +31,12 @@ const FgWhite   = '\x1b[37m';
 var prefixes = ['-', '+', '*', '>'];
 const prefixColors = [FgGreen, FgYellow, FgBlue, FgMagenta, FgCyan];
 
-var action = 'run';
-var target = '.*';
+//var action = 'run';
+//var target = '.*';
 var processed = false;
 
 
+/*
 if(process.argv.length > 2)
 {
     verbose('ARGV', process.argv, process.argv.length);
@@ -41,12 +48,15 @@ if(process.argv.length > 2)
         target = process.argv[3];
     }
 }
+*/
 
 
 var app = express();
 let server = undefined;
 
-var port = 2999;
+var g = []; //configurations and status
+var s = []; //process running
+var w = []; //watchers
 
 app.use(express.static(__dirname));
 
@@ -58,12 +68,12 @@ app.get('/api', function (req, res) {
 app.get('/info/:idx', (req, res) => {
 
     var idx = req.params.idx;
-    verbose('info ', idx);
+    log.verbose('info ', idx);
     var err = false;
    
     var info = s[idx].output;
 
-    verbose('info result:', info);
+    log.verbose('info result:', info);
 
     res.send(info);
 });
@@ -71,7 +81,7 @@ app.get('/info/:idx', (req, res) => {
 app.get('/restart/:idx/:debug?', (req, res) => {
 
     var idx = req.params.idx;
-    verbose('restart ', idx);
+    log.verbose('restart ', idx);
     var ret = 'restarting';
     var debug = false;
 
@@ -86,14 +96,15 @@ app.get('/restart/:idx/:debug?', (req, res) => {
     res.send(ret);
 });
 
-app.get('/stop', (req, res) => {
 
+function exit_server()
+{
     for(var i = 0; i < s.length; i++)
     {
         if(null != s[i].child)
         {
             var pid = s[i].child.pid;
-            verbose(FgYellow, 'killing: ', pid, g[i].name, Reset);
+            log.brief(FgYellow, 'killing: ', pid, g[i].name, Reset);
             s[i].child.stdin.pause();
             s[i].child.kill();
             s[i].child = null;
@@ -105,25 +116,27 @@ app.get('/stop', (req, res) => {
     setImmediate(()=> server.close());
 
     const timeout = setTimeout(() => { 
-        verbose('exiting from stop');
-        console.error('server could not exit');
+        log.brief('exiting from stop');
+        console.error(FgRed, 'server could not exit properly. some reference alive', Reset);
         process.exit(1000);
     }, 1000);
 
     timeout.unref();
+}
+
+app.get('/stop', (req, res) => {
+
+    exit_server();
 
     res.send('stopped');
     
 
 });
 
-var g = []; //configurations and status
-var s = []; //process running
-var w = []; //watchers
 
 
 
-verbose('CONFIG PROCESESS', config.proc.length);
+
 
 function exitproc(k, code)
 {
@@ -138,7 +151,7 @@ function exitproc(k, code)
 
     s[k].child = null;
 
-    info(
+    log.info(
         (code == 0 || null == code)?FgGreen:FgRed,
         'child end: ', pid, k, code, g[k]['status'], g[k].name
         ,Reset);
@@ -164,14 +177,14 @@ function execnotexisting(idx, debug)
 
     var NAME = g[idx].name;
 
-    verbose(FgCyan, 'execnotexisting', NAME, idx, Reset);
+    log.verbose(FgCyan, 'execnotexisting', NAME, idx, Reset);
 
     var p = g[idx];
 
     if(g[idx]['status'] == 'executing')
     {
 
-        verbose(FgMagenta, 'Process is executing ', NAME, Reset);
+        log.verbose(FgMagenta, 'Process is executing ', NAME, Reset);
         return;
     }
 
@@ -182,8 +195,6 @@ function execnotexisting(idx, debug)
         let options = {};
 
         try{
-
-                
 
             if(p.execOptions.length > i)
                 options = p.execOptions[i];
@@ -199,16 +210,16 @@ function execnotexisting(idx, debug)
                 options.env = Object.assign(process.env, options.env);
             }
                            
-            info(FgGreen, NAME, ' executing: ', p.exec[i], '\noptions: ', JSON.stringify(options, null, 4), Reset);
-            var b = cp.execSync(p.exec[i], options).toString();
-            verbose(FgGreen, NAME, ' executed.');
+            log.info(FgGreen, NAME, ' executing: ', p.exec[i], '\noptions: ', JSON.stringify(options, null, 4), Reset);
+            const b = cp.execSync(p.exec[i], options).toString();
+            log.verbose(FgGreen, NAME, ' executed.');
             s[idx].output.tasks[i] = b;
 
-            verbose(`>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>: ${NAME}`);
-            verbose(`stdout: ${b}`);
-            verbose(`---------------------------------------: ${NAME}`);
-            verbose(b.toString().split('\n'));
-            verbose(`<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<: ${NAME}`);
+            log.verbose(`>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>: ${NAME}`);
+            log.verbose(`stdout: ${b}`);
+            log.verbose(`---------------------------------------: ${NAME}`);
+            log.verbose(b.toString().split('\n'));
+            log.verbose(`<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<: ${NAME}`);
 
             stdout(b, p.prefix);
 
@@ -216,12 +227,12 @@ function execnotexisting(idx, debug)
         {
             if(true === options.ignoreError)
             {
-                verbose('EXEC IGNORE ERROR: ' + JSON.stringify(err, null, 4));
-                verbose(`>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>: ${NAME}`);
-                verbose(`stderr: ${err.output}`);
-                verbose(`---------------------------------------: ${NAME}`);
-                verbose(err.output.toString().split('\n'));
-                verbose(`<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<: ${NAME}`);
+                log.verbose('EXEC IGNORE ERROR: ' + JSON.stringify(err, null, 4));
+                log.verbose(`>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>: ${NAME}`);
+                log.verbose(`stderr: ${err.output}`);
+                log.verbose(`---------------------------------------: ${NAME}`);
+                log.verbose(err.output.toString().split('\n'));
+                log.verbose(`<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<: ${NAME}`);
 
                 stdout(err.output, g[idx].prefix + '\tEXEC IGNORE ERROR: ');
             }
@@ -244,7 +255,7 @@ function execnotexisting(idx, debug)
         s[idx].output.err = [];
            
 
-        info(FgGreen, NAME, ' spawing:', p.cmd.proc, (p.cmd.args)?p.cmd.args:'--', (debug)?debug:'-x-', Reset);
+        log.info(FgGreen, NAME, ' spawing:', p.cmd.proc, (p.cmd.args)?p.cmd.args:'--', (debug)?debug:'-x-', Reset);
 
         var args = [];
         if(null != p.cmd.args)
@@ -254,12 +265,12 @@ function execnotexisting(idx, debug)
         {
             for(var jj = (p.dbg_arg.length - 1); jj >= 0; jj--)
             {
-                verbose(FgCyan, p.dbg_idx, p.dbg_arg[jj], args, Reset);
+                log.verbose(FgCyan, p.dbg_idx, p.dbg_arg[jj], args, Reset);
                 args.splice(p.dbg_idx, 0, p.dbg_arg[jj]);
             }
                 
-            verbose(FgYellow, 
-                'spawing-debug:', p.cmd.proc, args
+            log.verbose(FgYellow, 
+                'spawning-debug:', p.cmd.proc, args
                 , Reset);
         }
 
@@ -274,23 +285,32 @@ function execnotexisting(idx, debug)
             }
             opt.env = Object.assign(process.env, opt.env);
 
-            verbose(NAME, 'OPTIONS: ', JSON.stringify(opt, null, 4));
+            log.verbose(NAME, 'OPTIONS: ', JSON.stringify(opt, null, 4));
         }
 
         s[idx].child = cp.spawn(p.cmd.proc, args, opt);
         var k = idx;
 
         s[idx].child.on('close', (code, signal) => {
-                
-            verbose('onclose ', k, code);
+            let pid = '--';
+
+            if(null != s[k].child)
+                pid = s[k].child.pid;
+
+            log.brief('onclose ',  g[k].name, pid, k, code, signal);
 
             exitproc(k, code);
                 
         });
 
         s[idx].child.on('exit', (code, signal) => {
-                
-            verbose('onexit ', k, code, g[k]['status'] == 'closing');
+            
+            let pid = '--';
+
+            if(null != s[k].child)
+                pid = s[k].child.pid;
+
+            log.brief('onexit ', g[k].name, pid, k, code, g[k]['status'] == 'closing', signal);
 
             if(g[k]['status'] == 'closing') //close did not got called
                 exitproc(k, code);
@@ -338,7 +358,7 @@ function execnotexisting(idx, debug)
                 g[idx].debug = m;
                 if(null != m)
                 {
-                    verbose('****************', m[0], '******************');
+                    log.verbose('****************', m[0], '******************');
                 }
             }
 
@@ -349,7 +369,7 @@ function execnotexisting(idx, debug)
     else
     {
         if(null != p.cmd)
-            verbose(FgRed, '------>', g[idx].name, ' skip spawn on error', s[idx].output.tasks);
+            log.verbose(FgRed, '------>', g[idx].name, ' skip spawn on error', s[idx].output.tasks);
         else
             g[idx]['status'] = 'closed';
     }
@@ -363,7 +383,7 @@ function exec(idx, debug)
     //|| g[idx]['status'] == 'closed'
     )
     {
-        info(FgMagenta, 'Process is exiting ', idx, g[idx].status, g[idx].name, Reset);
+        log.info(FgMagenta, 'Process is exiting ', idx, g[idx].status, g[idx].name, Reset);
         return;
     }
 
@@ -372,11 +392,11 @@ function exec(idx, debug)
     if(s[idx].child != null)
     {
         var pid = s[idx].child.pid;
-        verbose(FgYellow, 'killing: ', pid, g[idx].name, Reset);
+        log.brief(FgYellow, 'killing: ', pid, g[idx].name, Reset);
         var k = idx;
         s[idx].child.on('exit', (code, signal) => {
                  
-            verbose(FgMagenta, 'kill exit', pid, g[idx].name, g[idx].status, Reset);
+            log.brief(FgMagenta, 'kill exit', pid, g[idx].name, g[idx].status, Reset);
                  
             var j = k;
             setTimeout(() => {execnotexisting(j, debug);}, 50);
@@ -403,22 +423,22 @@ function proc(next, idx)
         p.watch.push('!.git/**/*');
         p.watch.push('!node_modules/**/*');
 
-        watchinfo(FgGreen, idx, NAME, p.watch, Reset);
+        log.watch(FgGreen, idx, NAME, p.watch, Reset);
 
         var kidx = idx;
         var watcher = chokidar.watch(p.watch).on('all', (event, path) => {
                    
-            watchinfo(FgCyan, 'watch event ' + kidx, event, path, Reset);
+            log.watch(FgCyan, 'watch event ' + kidx, event, path, Reset);
 
             if('change' == event)
             {
                 if(s[idx].change)
                 {
-                    info(FgYellow, NAME, 'Discard Duplicated Change', kidx, g[kidx].name, Reset);
+                    log.info(FgYellow, NAME, 'Discard Duplicated Change', kidx, g[kidx].name, Reset);
                     return;
                 }
 
-                watchinfo(FgCyan, 'watch change event ' + kidx, event, path, Reset);
+                log.watch(FgCyan, 'watch change event ' + kidx, event, path, Reset);
                    
                 s[idx].change = true;
                 exec(kidx);
@@ -431,7 +451,7 @@ function proc(next, idx)
 
         }); 
 
-        setTimeout(() => { watchinfo(FgGreen, NAME, 'Watching',  watcher.getWatched(), Reset); }, 2000);
+        setTimeout(() => { log.watch(FgGreen, NAME, 'Watching',  watcher.getWatched(), Reset); }, 2000);
 
         w[idx] = watcher;
     }
@@ -448,7 +468,7 @@ function http_get(url, callback)
         const statusCode = res.statusCode;
 
         if (statusCode !== 200) {
-            error = new Error('Request Failed.\n' +
+            const error = new Error('Request Failed.\n' +
                                   `Status Code: ${statusCode}`);
             callback(error);
             return;
@@ -469,93 +489,6 @@ function empty(){}
 
 var next = empty;
 
-var patt = new RegExp(target);
-
-if('run' === action)
-{
-    verbose('RUN ACTION', patt, config.proc.length, prefixes, prefixes.length);
-
-    var upl = (config.proc.length - 1);
-
-    for(let i = upl; i >= 0; i--)
-    {
-        //verbose("RUN", i, prefixes[ i % prefixes.length]);
-
-        var ff = next;
-        var pp = config.proc[i];
-
-        var d = {
-            'name'  : 'none'
-            , 'watch' : []
-            , 'exec'  : []
-            , 'execOptions' : []
-            , 'cmd'   : null 
-            , 'debug' : false 
-            , 'break' : false
-            , 'index' : i
-            , 'timeout' : 35000
-            , 'dbg_idx' : 0
-            , 'dbg_arg' : ['--inspect', '--debug-brk']
-            , 'dbg_url' : 'chrome-devtools:\/\/[^\\s\\n\\r]+'
-            , 'prefix'  : prefixes[ i % prefixes.length]
-            , 'color'   : prefixColors[ i % prefixes.length]
-        };
-
-        var pp = Object.assign(d, pp);
-        var dorun = patt.test(pp.name);
-        
-        verbose('RUN', d.name, i, JSON.stringify(pp, null, 4), i, dorun);
-
-        pp.prefix = pp.color + pp.prefix + pp.name + pp.prefix + Reset;
-        
-        g[i] = pp;
-        s[i] = {
-            'change' : false
-            , 'output' : { 'console': [], 'err': [], 'tasks' : [] }
-        };
-        
-        if(dorun)
-        {
-            verbose(FgGreen, '\t', '-----', pp.name, Reset);
-            const mf  = (upl == i)?empty:ff;
-            const idx = i;
-       
-            //var nn = () => {proc(mf, idx);}
-            var nn = function(){proc(mf, idx);};
-
-            next = nn;
-        }
-
-    }
-
-    next();
-
-    processed = true;
-
-    process.on('SIGINT', function() {
-        
-        info('SIGINT');
-
-        for(let idx=0; idx < s.length; idx++)
-        {
-            if(null != s[idx].child)
-            {
-                var pid = s[idx].child.pid;
-                info(FgYellow, 'killing: ', pid, g[idx].name, Reset);
-                s[idx].child.kill();
-                s[idx].child = null;
-            }
-        }
-
-        
-    });
-
-    server = app.listen(port, function () {
-        verbose('app listening on port ' + port + '!');
-    });
-
-
-}
 
 function checkurl(timeout, url, count, max)
 {
@@ -565,7 +498,7 @@ function checkurl(timeout, url, count, max)
                 
             if(err)
             {
-                verbose('cannot call ', url, count, max, err);
+                log.verbose('cannot call ', url, count, max, err);
 
                 if(count < max)
                 {
@@ -580,128 +513,48 @@ function checkurl(timeout, url, count, max)
             }
             else
             {
-                verbose('GOT', url);//, body);
+                log.info('GOT', url);//, body);
             }
                 
         });
     }, timeout);
 }
 
-if('start' === action)
+
+
+
+function info(argv)
 {
-    verbose('START>>', target, process.argv[1]);
+    log.verbose('info', argv.target);
 
-    const out = fs.openSync('./out.log', 'a');
-    const err = fs.openSync('./out.log', 'a');
-    
-    var child = cp.spawn('node', [ process.argv[1], 'run', target]
-        , {
-            detached: true
-            , stdio: [ 'ignore', out, err ]
-            , cwd: process.cwd()
-        });
-
-    verbose('start child %O', child);
-
-    //fs.writeFileSync("./pid", child.pid);
-
-    //console.log('started', child.pid);    
-
-    child.unref();
-
-    var info = config[target];
-
-    if(null != info)
-    {
-        if(null != info.url)
+    http_get('http://localhost:' + argv.port + '/info/' + argv.target , function(err, body)
+    {   
+        if(err)
         {
-            var timeout = 10000;
-
-            if(null != info.timeout)
-                timeout = info.timeout;
-            
-            checkurl(timeout, info.url, 0, 5);
-            
+            console.error('error', err);
+            process.exitCode = 8;
         }
-
-    }
-
-    processed = true;
-                  
-}
-
-if('stop' === action)
-{
-    verbose('STOP', target);
-
-    http_get('http://localhost:' + port + '/stop', function(err, body)
-    {   if(err)
-    {
-        verbose('error', err);
-        process.exitCode = 6;
-    }
-    else
-    {
-        verbose('exited', body);
-    }
+        else
+        {
+            var j = JSON.parse(body);
+            //console.log(j);
+            j.tasks.forEach((l) => process.stdout.write(l));
+            //console.log(body);
+            j.console.forEach((l) => process.stdout.write(l));
+            j.err.forEach((l) => process.stderr.write(l));
+                    
+        }
                                                        
     });
 
     processed = true;
 }
 
-if('all' === action)
+function restart(argv)
 {
-    verbose('all', target);
+    log.verbose('restart', argv.target);
 
-    http_get('http://localhost:' + port + '/api', function(err, body)
-    {   if(err)
-    {
-        console.error('error', err);
-        process.exitCode = (7);
-    }
-    else
-    {
-        var j = JSON.parse(body);
-        console.log(JSON.stringify(j, null, 4));
-    }
-                                                       
-    });
-
-    processed = true;
-}
-
-if('info' === action)
-{
-    verbose('info', target);
-
-    http_get('http://localhost:' + port + '/info/' + target , function(err, body)
-    {   if(err)
-    {
-        console.error('error', err);
-        process.exitCode = 0(8);
-    }
-    else
-    {
-        var j = JSON.parse(body);
-        //console.log(j);
-        j.tasks.forEach((l) => process.stdout.write(l));
-        //console.log(body);
-        j.console.forEach((l) => process.stdout.write(l));
-        j.err.forEach((l) => process.stderr.write(l));
-                  
-    }
-                                                       
-    });
-
-    processed = true;
-}
-
-if('restart' === action)
-{
-    verbose('restart', target);
-
-    http_get('http://localhost:' + port + '/restart/' + target , function(err, body)
+    http_get('http://localhost:' + argv.port + '/restart/' + argv.target , function(err, body)
     {   if(err)
     {
         console.error('error', err);
@@ -716,4 +569,220 @@ if('restart' === action)
 
     processed = true;
 }
+
+function run_and_start_config(yargs)
+{
+    return yargs.positional('target', {
+        describe: 'a regex for all target to be executed in devman.json'
+        ,type: 'string'
+        ,default: '.*'
+    }).option('config', {
+        alias: 'c'
+        ,default: './devman.json'
+    }).option('port', {
+        alias: 'p'
+        , default: '2999'
+    });
+}
+
+yargs.command(['run [target]', '$0'], 'run devman' 
+    , (yargs) => {
+        run_and_start_config(yargs);
+    }
+    , (argv) => {
+
+        let target = argv.target;
+
+        var patt = new RegExp(target);
+
+        const config   = require(path.resolve(process.cwd(), argv.config));
+
+        log.verbose('CONFIG PROCESSES', config.proc.length);
+   
+        log.verbose('RUN ACTION', patt, config.proc.length, prefixes, prefixes.length);
+
+        var upl = (config.proc.length - 1);
+
+        for(let i = upl; i >= 0; i--)
+        {
+        //verbose("RUN", i, prefixes[ i % prefixes.length]);
+
+            var ff = next;
+            var pp = config.proc[i];
+
+            var d = {
+                'name'  : 'none'
+                , 'watch' : []
+                , 'exec'  : []
+                , 'execOptions' : []
+                , 'cmd'   : null 
+                , 'debug' : false 
+                , 'break' : false
+                , 'index' : i
+                , 'timeout' : 35000
+                , 'dbg_idx' : 0
+                , 'dbg_arg' : ['--inspect', '--debug-brk']
+                , 'dbg_url' : 'chrome-devtools:\/\/[^\\s\\n\\r]+'
+                , 'prefix'  : prefixes[ i % prefixes.length]
+                , 'color'   : prefixColors[ i % prefixes.length]
+            };
+
+            var pp = Object.assign(d, pp);
+            var dorun = patt.test(pp.name);
+        
+            log.verbose('RUN', d.name, i, JSON.stringify(pp, null, 4), i, dorun);
+
+            pp.prefix = pp.color + pp.prefix + pp.name + pp.prefix + Reset;
+        
+            g[i] = pp;
+            s[i] = {
+                'change' : false
+                , 'output' : { 'console': [], 'err': [], 'tasks' : [] }
+            };
+        
+            if(dorun)
+            {
+                log.verbose(FgGreen, '\t', '-----', pp.name, Reset);
+                const mf  = (upl == i)?empty:ff;
+                const idx = i;
+       
+                //var nn = () => {proc(mf, idx);}
+                var nn = function(){proc(mf, idx);};
+
+                next = nn;
+            }
+
+        }
+
+        next();
+
+        processed = true;
+
+        process.on('SIGINT', function() {
+        
+            log.brief('SIGINT');
+            /*
+            for(let idx=0; idx < s.length; idx++)
+            {
+                if(null != s[idx].child)
+                {
+                    var pid = s[idx].child.pid;
+                    log.brief(FgYellow, 'killing: ', pid, g[idx].name, Reset);
+                    s[idx].child.kill();
+                    s[idx].child = null;
+                }
+            }*/
+
+            exit_server();
+
+        
+        });
+
+        server = app.listen(argv.port, function () {
+            log.brief('app listening on port ' + argv.port + '!');
+        });
+
+
+    }).command('all', 'get all'
+    , () => {}
+    , (args) => {
+        log.verbose('all', args.target);
+
+        http_get('http://localhost:' + args.port + '/api', function(err, body)
+        {   
+            if(err)
+            {
+                console.error('error', err);
+                process.exitCode = (7);
+            }
+            else
+            {
+                var j = JSON.parse(body);
+                console.log(JSON.stringify(j, null, 4));
+            }
+                                                                
+        });
+
+        processed = true;
+
+    }).command('start', 'start devman in a separate process'
+
+    , (yargs) => {
+        run_and_start_config(yargs);
+        
+    }
+    , (argv) => {
+            
+        log.verbose('START>>', argv.target, process.argv[1], argv.config);
+
+        const config   = require(path.resolve(process.cwd(), argv.config));
+
+        const out = fs.openSync('./out.log', 'a');
+        const err = fs.openSync('./out.log', 'a');
+            
+        var child = cp.spawn('node', [ process.argv[1], 'run', argv.target, '--config', argv.config, '--port', argv.port]
+            , {
+                detached: true
+                , stdio: [ 'ignore', out, err ]
+                , cwd: process.cwd()
+            });
+        
+        log.verbose('start child %O', child);
+        
+        //fs.writeFileSync("./pid", child.pid);
+        
+        //console.log('started', child.pid);    
+        
+        child.unref();
+        
+        var info = config[argv.target];
+        
+        if(null != info)
+        {
+            if(null != info.url)
+            {
+                var timeout = 10000;
+        
+                if(null != info.timeout)
+                    timeout = info.timeout;
+                    
+                checkurl(timeout, info.url, 0, 5);
+                    
+            }
+        
+        }
+        
+        processed = true;
+                          
+    }).command('stop', 'start devman in a separate process'
+    , (yargs) => { }
+    , (argv) => {
+        
+        log.verbose('STOP');
+
+        http_get('http://localhost:' + argv.port + '/stop', function(err, body)
+        {   
+            if(err)
+            {
+                log.verbose('error', err);
+                process.exitCode = 6;
+            }
+            else
+            {
+                log.verbose('exited', body);
+            }
+        });
+     
+        processed = true;
+
+    })   
+    .help()
+    .argv;
+
+
+
+
+    
+
+
 

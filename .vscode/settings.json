@@ -5,5 +5,8 @@
           "node_modules/": true
         , ".nyc_output/:": true
         , "coverage/": true
-    }
+    },
+    "cSpell.words": [
+        "devman"
+    ]
 }

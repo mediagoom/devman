@@ -29,7 +29,7 @@
          }
          , 
          {
-              "name"  : "just say hello"
+              "name"  : "the-just-say-hello-app"
             , "watch" : ["test/**/*js"]
             , "exec"  : ["node ./test/consoleapp.js once -m \"hello world\""]
             , "debug" : false 
