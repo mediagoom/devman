@@ -107,7 +107,7 @@ function exit_server()
             log.brief(FgYellow, 'killing: ', pid, g[i].name, Reset);
             s[i].child.stdin.pause();
             s[i].child.kill();
-            s[i].child = null;
+            //s[i].child = null;
         }
             
     }
@@ -115,13 +115,18 @@ function exit_server()
     process.exitCode = 0;
     setImmediate(()=> server.close());
 
+    log.brief('SEND-SIGINT');
+    process.kill(process.pid, 'SIGINT');
+
+    /*
     const timeout = setTimeout(() => { 
         log.brief('exiting from stop');
-        console.error(FgRed, 'server could not exit properly. some reference alive', Reset);
-        process.exit(1000);
+        log.brief(FgRed, 'server exit.', Reset);
+        process.exit();
     }, 1000);
 
     timeout.unref();
+    */
 }
 
 app.get('/stop', (req, res) => {
@@ -169,7 +174,10 @@ function clear_child(child)
     if(child == null)
         return null;
 
-    child;
+    const events = child.eventNames();
+
+    //for(let i = 0; i < events.length; i++)
+    //child.removeAllListeners(events[i]);
 }
 
 function execnotexisting(idx, debug)
@@ -296,6 +304,9 @@ function execnotexisting(idx, debug)
 
             if(null != s[k].child)
                 pid = s[k].child.pid;
+            
+            clear_child(s[k].child);
+            s[k].child = null;
 
             log.brief('onclose ',  g[k].name, pid, k, code, signal);
 
@@ -309,6 +320,9 @@ function execnotexisting(idx, debug)
 
             if(null != s[k].child)
                 pid = s[k].child.pid;
+
+            clear_child(s[k].child);
+            s[k].child = null;
 
             log.brief('onexit ', g[k].name, pid, k, code, g[k]['status'] == 'closing', signal);
 
@@ -412,8 +426,7 @@ function exec(idx, debug)
 }
 
 function proc(next, idx)
-{
-  
+{  
     var p = g[idx];
     
     var NAME = p.name;
@@ -462,7 +475,8 @@ function proc(next, idx)
 
 function http_get(url, callback)
 {
-    
+    log.brief('http get', url);
+
     require('http').get(url, (res) => {
 
         const statusCode = res.statusCode;
@@ -570,18 +584,24 @@ function restart(argv)
     processed = true;
 }
 
-function run_and_start_config(yargs)
+function target_and_port_config(yargs)
 {
     return yargs.positional('target', {
         describe: 'a regex for all target to be executed in devman.json'
         ,type: 'string'
         ,default: '.*'
-    }).option('config', {
-        alias: 'c'
-        ,default: './devman.json'
     }).option('port', {
         alias: 'p'
         , default: '2999'
+    });
+}
+
+function run_and_start_config(yargs)
+{
+    target_and_port_config(yargs);
+    return yargs.option('config', {
+        alias: 'c'
+        ,default: './devman.json'
     });
 }
 
@@ -608,7 +628,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
         //verbose("RUN", i, prefixes[ i % prefixes.length]);
 
             var ff = next;
-            var pp = config.proc[i];
+            let pp = config.proc[i];
 
             var d = {
                 'name'  : 'none'
@@ -627,7 +647,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
                 , 'color'   : prefixColors[ i % prefixes.length]
             };
 
-            var pp = Object.assign(d, pp);
+            pp = Object.assign(d, pp);
             var dorun = patt.test(pp.name);
         
             log.verbose('RUN', d.name, i, JSON.stringify(pp, null, 4), i, dorun);
@@ -658,25 +678,18 @@ yargs.command(['run [target]', '$0'], 'run devman'
 
         processed = true;
 
-        process.on('SIGINT', function() {
-        
-            log.brief('SIGINT');
-            /*
-            for(let idx=0; idx < s.length; idx++)
-            {
-                if(null != s[idx].child)
-                {
-                    var pid = s[idx].child.pid;
-                    log.brief(FgYellow, 'killing: ', pid, g[idx].name, Reset);
-                    s[idx].child.kill();
-                    s[idx].child = null;
-                }
-            }*/
+        let callback = null;
 
+        callback = function() {
+        
+            log.brief('ON-SIGINT');
+
+            process.removeListener('SIGINT', callback);
+            
             exit_server();
+        };
 
-        
-        });
+        process.on('SIGINT', callback);
 
         server = app.listen(argv.port, function () {
             log.brief('app listening on port ' + argv.port + '!');
@@ -684,7 +697,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
 
 
     }).command('all', 'get all'
-    , () => {}
+    , (yargs) => { target_and_port_config(yargs); }
     , (args) => {
         log.verbose('all', args.target);
 
@@ -713,7 +726,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
     }
     , (argv) => {
             
-        log.verbose('START>>', argv.target, process.argv[1], argv.config);
+        log.brief('START>>', argv.target, process.argv[1], argv.config);
 
         const config   = require(path.resolve(process.cwd(), argv.config));
 
@@ -755,7 +768,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
         processed = true;
                           
     }).command('stop', 'start devman in a separate process'
-    , (yargs) => { }
+    , (yargs) => { target_and_port_config(yargs); }
     , (argv) => {
         
         log.verbose('STOP');
@@ -775,8 +788,13 @@ yargs.command(['run [target]', '$0'], 'run devman'
      
         processed = true;
 
-    })   
-    .help()
+    }).command('info', 'return server info'
+    , (yargs) => { target_and_port_config(yargs); }
+    , (argv) => { info(argv);
+    }).command('restart', 'return server info'
+    , (yargs) => { target_and_port_config(yargs); }
+    , (argv) => { restart(argv);}
+).help()
     .argv;
 
 

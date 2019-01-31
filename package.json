@@ -12,9 +12,12 @@
   "scripts": {
     "interactive": "node index.js",
     "integration": "node test/index.js",
-    "start": "node index.js start",
+    "cov-start" : "nyc npm start"
+    , "cov-stop": "nyc --clean false npm stop"
+    , "start": "node index.js start",
     "stop": "node index.js stop",
-    "testinstrumented": "nyc --show-process-tree npm test ",
+    "cov-test": "run-s cov-start integration cov-stop",
+   
     "report": "nyc report",
     "test": "run-s -c start integration stop"
   },
