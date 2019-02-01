@@ -13,6 +13,7 @@ const log = {
     , watch : require('debug')('devman:watch')
     , verbose  : require('debug')('devman:verbose')
     , brief : require('debug')('devman:brief') 
+    , error: console.error
 };
 
 
@@ -113,10 +114,24 @@ function exit_server()
     }
    
     process.exitCode = 0;
-    setImmediate(()=> server.close());
+    //setImmediate(()=> server.close());
+    if(undefined !== server)
+    {
+        const timeout = setTimeout(() => {  if(undefined !== server){ server.close();}  server = undefined; }, 10);
+        timeout.unref();
+    }
 
-    log.brief('SEND-SIGINT');
-    process.kill(process.pid, 'SIGINT');
+    const timeout = setTimeout(() => { 
+
+        log.brief('exiting from stop');
+        //log.brief(FgRed, 'server exit.', Reset);
+        log.brief('SEND-SIGINT');
+        process.kill(process.pid, 'SIGINT');
+        
+    }, 100);
+
+    timeout.unref();
+   
 
     /*
     const timeout = setTimeout(() => { 
@@ -217,6 +232,11 @@ function execnotexisting(idx, debug)
                 }
                 options.env = Object.assign(process.env, options.env);
             }
+
+            if(undefined === options.cwd)
+            {
+                options.cwd = p.cwd;
+            }
                            
             log.info(FgGreen, NAME, ' executing: ', p.exec[i], '\noptions: ', JSON.stringify(options, null, 4), Reset);
             const b = cp.execSync(p.exec[i], options).toString();
@@ -296,6 +316,11 @@ function execnotexisting(idx, debug)
             log.verbose(NAME, 'OPTIONS: ', JSON.stringify(opt, null, 4));
         }
 
+        if(undefined === opt.cwd)
+        {
+            opt.cwd = p.cwd;
+        }
+
         s[idx].child = cp.spawn(p.cmd.proc, args, opt);
         var k = idx;
 
@@ -332,6 +357,7 @@ function execnotexisting(idx, debug)
         });
 
         s[idx].child.on('error', (err) => {
+            
             g[k]['info']   = 'err ' + err.message;
             s[k]['err']    = err;
             g[k]['status'] = 'error';
@@ -593,6 +619,9 @@ function target_and_port_config(yargs)
     }).option('port', {
         alias: 'p'
         , default: '2999'
+    }).option('cwd', {
+        alias: 'd'
+        , default: process.cwd()
     });
 }
 
@@ -607,6 +636,7 @@ function run_and_start_config(yargs)
 
 yargs.command(['run [target]', '$0'], 'run devman' 
     , (yargs) => {
+
         run_and_start_config(yargs);
     }
     , (argv) => {
@@ -615,10 +645,9 @@ yargs.command(['run [target]', '$0'], 'run devman'
 
         var patt = new RegExp(target);
 
-        const config   = require(path.resolve(process.cwd(), argv.config));
+        const config   = require(path.resolve(argv.cwd, argv.config));
 
         log.verbose('CONFIG PROCESSES', config.proc.length);
-   
         log.verbose('RUN ACTION', patt, config.proc.length, prefixes, prefixes.length);
 
         var upl = (config.proc.length - 1);
@@ -631,6 +660,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
             let pp = config.proc[i];
 
             var d = {
+
                 'name'  : 'none'
                 , 'watch' : []
                 , 'exec'  : []
@@ -645,6 +675,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
                 , 'dbg_url' : 'chrome-devtools:\/\/[^\\s\\n\\r]+'
                 , 'prefix'  : prefixes[ i % prefixes.length]
                 , 'color'   : prefixColors[ i % prefixes.length]
+                , 'cwd'     : argv.cwd
             };
 
             pp = Object.assign(d, pp);
@@ -697,6 +728,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
 
 
     }).command('all', 'get all'
+
     , (yargs) => { target_and_port_config(yargs); }
     , (args) => {
         log.verbose('all', args.target);
@@ -705,7 +737,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
         {   
             if(err)
             {
-                console.error('error', err);
+                log.error('error', err);
                 process.exitCode = (7);
             }
             else
@@ -728,7 +760,8 @@ yargs.command(['run [target]', '$0'], 'run devman'
             
         log.brief('START>>', argv.target, process.argv[1], argv.config);
 
-        const config   = require(path.resolve(process.cwd(), argv.config));
+        //path normalize
+        const config   = require(path.resolve(argv.cwd, argv.config));
 
         const out = fs.openSync('./out.log', 'a');
         const err = fs.openSync('./out.log', 'a');
@@ -767,7 +800,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
         
         processed = true;
                           
-    }).command('stop', 'start devman in a separate process'
+    }).command('stop', 'stop a devman process'
     , (yargs) => { target_and_port_config(yargs); }
     , (argv) => {
         
@@ -777,7 +810,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
         {   
             if(err)
             {
-                log.verbose('error', err);
+                log.error('error', err);
                 process.exitCode = 6;
             }
             else
