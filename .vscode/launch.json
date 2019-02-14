@@ -9,7 +9,11 @@
             "type": "node",
             "request": "launch",
             "name": "Launch Program",
-            "program": "${workspaceRoot}\\devman.js"
+            "program": "${workspaceRoot}/index.js"
+            , "args": ["run", "console1", "--port", "3999"]
+            , "env": {
+                "DEBUG" : "devman:brief"
+            }
         },
         {
             "type": "node",

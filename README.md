@@ -7,7 +7,7 @@ devman is nodejs development helper tool.
 This tool allows to concurrently run more than one process.
 Each process can be restarted based on file modification.
 
-It aims at simplifying developing and testing multi-process  microservices applications.
+It aims at simplifying developing and testing multi-processes microservices applications.
 
 To install run:
 ```npm i -D @mediagoom/devman```
@@ -51,12 +51,20 @@ Sample file:
 }
 ```
 
-All ```proc``` in your array will be process lunched and managed by devman. Devman will use the ```cmd``` attribute to kwon how to lunch the process.
+All ```proc``` in your array will be process lunched and managed by devman. Devman will use the ```cmd``` attribute to know how to lunch the processes.
 In ```watch``` you can insert a glob for file witch will restart your process.
 
 ## Web
 
 Open your browser to http://localhost:2999 to get an experimental UI to devman.
+
+## Command Line
+
+Run:
+```
+devman --help
+```
+to get a list of options
 
 
 
