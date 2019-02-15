@@ -102,6 +102,8 @@ function exit_server()
 {
     for(var i = 0; i < s.length; i++)
     {
+        g[i].restart = false; //avoid restarting we are exiting
+
         if(null != s[i].child)
         {
             var pid = s[i].child.pid;
@@ -160,6 +162,9 @@ app.get('/stop', (req, res) => {
 
 function exitproc(k, code)
 {
+
+    const status = g[k]['status'];
+
     g[k]['info']   = 'close ' + code;
     g[k]['status'] = 'closed';
     g[k]['lastexitcode'] = code;
@@ -175,6 +180,11 @@ function exitproc(k, code)
         (code == 0 || null == code)?FgGreen:FgRed,
         'child end: ', pid, k, code, g[k]['status'], g[k].name
         ,Reset);
+
+    if(g[k].restart && status !== 'closing')
+    {
+        setTimeout(() => {execnotexisting(k, false);}, 50);
+    }
 }
 
 function stdout(data, prefix)
@@ -676,6 +686,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
                 , 'prefix'  : prefixes[ i % prefixes.length]
                 , 'color'   : prefixColors[ i % prefixes.length]
                 , 'cwd'     : argv.cwd
+                , 'restart' : false
             };
 
             pp = Object.assign(d, pp);
