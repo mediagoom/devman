@@ -314,7 +314,8 @@ function execnotexisting(idx, debug)
 
         var opt = Object.assign({}, p.options);//, {shell : false});
 
-        if(null != p.options.env
+        if(undefined !== p.options
+            && null != p.options.env
                    && null != opt.env)
         {
             if(null != opt.env.PATH && false !== opt.mergepath)
@@ -567,6 +568,7 @@ function checkurl(timeout, url, count, max)
             }
                 
         });
+
     }, timeout);
 }
 
@@ -742,6 +744,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
 
     , (yargs) => { target_and_port_config(yargs); }
     , (args) => {
+        
         log.verbose('all', args.target);
 
         http_get('http://localhost:' + args.port + '/api', function(err, body)
@@ -761,11 +764,11 @@ yargs.command(['run [target]', '$0'], 'run devman'
 
         processed = true;
 
-    }).command('start', 'start devman in a separate process'
+    }).command(['start [target]', '$0'], 'start devman in a separate process'
 
     , (yargs) => {
+
         run_and_start_config(yargs);
-        
     }
     , (argv) => {
             
@@ -812,6 +815,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
         processed = true;
                           
     }).command('stop', 'stop a devman process'
+
     , (yargs) => { target_and_port_config(yargs); }
     , (argv) => {
         
