@@ -155,11 +155,6 @@ app.get('/stop', (req, res) => {
 
 });
 
-
-
-
-
-
 function exitproc(k, code)
 {
 
@@ -744,7 +739,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
 
     , (yargs) => { target_and_port_config(yargs); }
     , (args) => {
-        
+
         log.verbose('all', args.target);
 
         http_get('http://localhost:' + args.port + '/api', function(err, body)
@@ -764,7 +759,7 @@ yargs.command(['run [target]', '$0'], 'run devman'
 
         processed = true;
 
-    }).command(['start [target]', '$0'], 'start devman in a separate process'
+    }).command(['start [target]'], 'start devman in a separate process'
 
     , (yargs) => {
 

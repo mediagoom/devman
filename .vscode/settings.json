@@ -4,10 +4,32 @@
     "files.eol": "\n",
     "files.exclude": {
           "node_modules/": true
-        , ".nyc_output/:": true
+        , ".nyc_output/": true
         , "coverage/": true
     },
     "cSpell.words": [
         "devman"
     ]
+    , "peacock.favoriteColors": [
+        
+        { "name": "Gatsby Purple", "value": "#639" },
+        { "name": "devmna", "value": "#ad42f4" },
+        { "name": "Azure Blue", "value": "#007fff" }
+        , {"name": "Azure Code", "value": "007acc"}
+      
+]
+, "peacock.affectActivityBar"	: true
+, "peacock.affectStatusBar" : true
+,
+"peacock.affectTitleBar": false,
+"workbench.colorCustomizations": {
+    "activityBar.background": "#7f40bf",
+    "activityBar.foreground": "#e7e7e7",
+    "activityBar.inactiveForeground": "#e7e7e799",
+    "activityBarBadge.background": "#c78f58",
+    "activityBarBadge.foreground": "#15202b",
+    "statusBar.background": "#663399",
+    "statusBarItem.hoverBackground": "#7f40bf",
+    "statusBar.foreground": "#e7e7e7"
+}
 }
