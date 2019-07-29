@@ -1,5 +1,5 @@
 
-[![Build Status](https://travis-ci.org/mediagoom/devman.svg?branch=master)](https://travis-ci.org/mediagoom/devman)
+[![Build Status](https://travis-ci.org/mediagoom/devman.svg?branch=master)](https://travis-ci.org/mediagoom/devman)[![Language grade: JavaScript](https://img.shields.io/lgtm/grade/javascript/g/mediagoom/devman.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/mediagoom/devman/context:javascript) [![Known Vulnerabilities](https://snyk.io/test/github/mediagoom/devman/badge.svg)](https://snyk.io/test/github/mediagoom/devman) 
 
 # @mediagoom/devman
 devman is nodejs development helper tool.

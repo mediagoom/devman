@@ -6,7 +6,8 @@ node_js:
 branches:
   except:
   - dev-wia
-before_install: 
+before_install:
+- python ./version.py 
 script:
 - npm install
 - npm test
